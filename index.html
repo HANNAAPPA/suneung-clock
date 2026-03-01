@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>수능 모의고사 시계</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #0d1117; color: #e6edf3;
+      font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+      -webkit-tap-highlight-color: transparent; user-select: none;
+    }
+
+    /* ── 활성화 오버레이 ── */
+    #overlay {
+      position: fixed; inset: 0; background: #0d1117;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 999; cursor: pointer; gap: 1.5rem;
+    }
+    #overlay .logo { font-size: clamp(1.8rem, 4vw, 3rem); font-weight: 900; color: #58a6ff; }
+    #overlay .hint {
+      font-size: clamp(0.9rem, 2vw, 1.4rem); color: #8b949e;
+      animation: blink 1.6s ease-in-out infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+    /* ── 전체 레이아웃: 헤더 / 메인 / 버튼 ── */
+    #app {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      height: 100vh;
+      padding: clamp(0.5rem, 1.2vw, 1rem);
+      gap: clamp(0.3rem, 0.8vh, 0.7rem);
+    }
+
+    /* ── 헤더 ── */
+    #hdr {
+      display: flex; align-items: center; justify-content: space-between;
+      padding-bottom: clamp(0.3rem, 0.7vh, 0.6rem);
+      border-bottom: 1px solid #21262d;
+    }
+    #exam-title {
+      font-size: clamp(1rem, 2.2vw, 1.6rem);
+      font-weight: 800; color: #e6edf3;
+    }
+    #hdr-right { display: flex; align-items: center; gap: 0.7rem; }
+    #sync-info {
+      display: flex; align-items: center; gap: 0.35rem;
+      font-size: clamp(0.6rem, 1.2vw, 0.85rem); color: #8b949e;
+    }
+    .dot {
+      width: 7px; height: 7px; border-radius: 50%; background: #3fb950;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    #fs-btn {
+      background: #21262d; border: 1px solid #30363d; color: #8b949e;
+      border-radius: 6px; padding: 0.25em 0.6em;
+      font-size: clamp(0.6rem, 1.2vw, 0.85rem);
+      cursor: pointer; touch-action: manipulation;
+    }
+    #fs-btn:active { background: #30363d; }
+
+    /* ── 메인: 시계(좌) + 시간표(우) ── */
+    #main {
+      display: grid;
+      grid-template-columns: 54fr 46fr;
+      gap: clamp(0.5rem, 1.2vw, 1rem);
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* ── 좌: 시계 패널 ── */
+    #clock-panel {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: clamp(0.3rem, 1vh, 0.8rem);
+    }
+    #period-badge {
+      font-size: clamp(0.85rem, 2vw, 1.5rem); font-weight: 800;
+      padding: 0.2em 0.75em; border-radius: 8px;
+      background: #161b22; border: 2px solid currentColor;
+      transition: color 0.4s;
+    }
+    #period-badge.exam    { color: #3fb950; }
+    #period-badge.yebi    { color: #d29922; }
+    #period-badge.break   { color: #8b949e; }
+    #period-badge.prepare { color: #d29922; }
+    #period-badge.done    { color: #58a6ff; }
+
+    #time-display {
+      font-size: clamp(3rem, 13vw, 12rem);
+      font-weight: 900; letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums; line-height: 1;
+      text-shadow: 0 0 60px rgba(88,166,255,0.15);
+    }
+    #countdown-wrap { width: 100%; max-width: min(680px, 90%); }
+    #cd-row {
+      display: flex; align-items: baseline; justify-content: center;
+      gap: 0.7rem; margin-bottom: 0.35rem;
+    }
+    #cd-label { font-size: clamp(0.7rem, 1.5vw, 1rem); color: #8b949e; }
+    #cd-value {
+      font-size: clamp(1.2rem, 2.8vw, 2.3rem);
+      font-weight: 700; font-variant-numeric: tabular-nums;
+    }
+    #progress-track {
+      height: clamp(6px, 1.1vh, 11px);
+      background: #21262d; border-radius: 99px; overflow: hidden;
+    }
+    #progress-fill {
+      height: 100%; border-radius: 99px;
+      background: linear-gradient(90deg, #3fb950, #d29922, #f85149);
+      transition: width 0.9s ease;
+    }
+    #next-info {
+      text-align: center; margin-top: 0.3rem;
+      font-size: clamp(0.65rem, 1.3vw, 0.9rem);
+      color: #8b949e; min-height: 1.3em;
+    }
+
+    /* ── 우: 시간표 패널 ── */
+    #table-panel {
+      background: #161b22; border-radius: 10px;
+      border: 1px solid #21262d;
+      overflow-y: auto; overflow-x: hidden;
+      padding: clamp(0.4rem, 1vw, 0.8rem);
+      display: flex; flex-direction: column;
+    }
+    #table-panel::-webkit-scrollbar { width: 4px; }
+    #table-panel::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
+
+    #schedule-table {
+      width: 100%; border-collapse: collapse; flex: 1;
+      font-size: clamp(1rem, 2.1vw, 1.5rem);
+    }
+    #schedule-table thead th {
+      text-align: left; color: #6b7280;
+      font-size: clamp(0.75rem, 1.5vw, 1.05rem); font-weight: 600;
+      padding: 0 0.4em 0.6em 0.4em;
+      border-bottom: 1px solid #21262d;
+    }
+
+    /* ── 시험 행 ── */
+    .row-exam { transition: background 0.3s; border-left: 4px solid transparent; }
+    .row-exam td { padding: clamp(0.45rem, 1.1vh, 0.8rem) 0.4em; vertical-align: middle; }
+    .td-period  { font-weight: 900; white-space: nowrap; width: 20%; font-size: 1.05em; }
+    .td-subject { font-weight: 700; width: 38%; }
+    .td-time    { width: 42%; }
+    .time-range { display: block; font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; }
+    .time-min   { display: block; font-size: 0.82em; color: #6b7280; margin-top: 0.15em; }
+
+    /* ── 휴식 행 ── */
+    .row-break { border-left: 4px solid transparent; }
+    .row-break td {
+      padding: clamp(0.2rem, 0.5vh, 0.35rem) 0.4em;
+      font-size: 0.78em; color: #4b5563; font-style: italic;
+    }
+    .td-break-time { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+    /* ── 행 상태: 현재 시험 교시 ── */
+    .row-exam[data-state="active-exam"] {
+      background: rgba(63, 185, 80, 0.07);
+      border-left-color: #3fb950;
+    }
+    .row-exam[data-state="active-exam"] .td-period  { color: #3fb950; }
+    .row-exam[data-state="active-exam"] .td-subject { color: #e6edf3; }
+    .row-exam[data-state="active-exam"] .time-range { color: #a7f3d0; }
+    .row-exam[data-state="active-exam"] .time-min   { color: #6ee7b7; }
+
+    /* ── 행 상태: 예비령 시간 ── */
+    .row-exam[data-state="active-yebi"] {
+      background: rgba(210, 153, 34, 0.07);
+      border-left-color: #d29922;
+    }
+    .row-exam[data-state="active-yebi"] .td-period  { color: #d29922; }
+    .row-exam[data-state="active-yebi"] .td-subject { color: #e6edf3; }
+    .row-exam[data-state="active-yebi"] .time-range { color: #fde68a; }
+    .row-exam[data-state="active-yebi"] .time-min   { color: #fcd34d; }
+
+    /* ── 행 상태: 휴식 하이라이트 ── */
+    .row-break[data-state="active-break"] {
+      background: rgba(88, 166, 255, 0.04);
+      border-left-color: #58a6ff;
+    }
+    .row-break[data-state="active-break"] td { color: #8b949e; }
+
+    /* ── 행 상태: 지난 교시 (회색 처리) ── */
+    .row-exam[data-state="past"]  td { opacity: 0.28; }
+    .row-break[data-state="past"] td { opacity: 0.2;  }
+
+    /* ── 행 상태: 미래 교시 ── */
+    .row-exam[data-state="future"]  td { color: #6b7280; }
+    .row-break[data-state="future"] td { color: #374151; }
+
+    /* ── 타종 알림 (화면 중앙) ── */
+    #bell-announce {
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: clamp(2.5rem, 8vw, 8rem); font-weight: 900;
+      pointer-events: none; z-index: 800;
+      opacity: 0; transition: opacity 0.2s; text-align: center;
+    }
+    #bell-announce.show   { opacity: 1; }
+    #bell-announce.yebi   { color: #e3b341; text-shadow: 0 0 60px #e3b341; }
+    #bell-announce.bon    { color: #56d364; text-shadow: 0 0 60px #56d364; }
+    #bell-announce.jongyo { color: #ff7b72; text-shadow: 0 0 60px #ff7b72; }
+
+    /* ── 화면 플래시 ── */
+    .flash {
+      position: fixed; inset: 0; pointer-events: none; z-index: 700;
+      animation: flash-out 0.7s ease-out forwards;
+    }
+    @keyframes flash-out { 0%{opacity:0.3} 100%{opacity:0} }
+    .flash.yebi   { background: #d29922; }
+    .flash.bon    { background: #3fb950; }
+    .flash.jongyo { background: #f85149; }
+
+    /* ── 수동 타종 버튼 ── */
+    #bell-buttons {
+      display: grid; grid-template-columns: 1fr 1fr 1fr;
+      gap: clamp(0.4rem, 1vw, 0.7rem);
+    }
+    .bell-btn {
+      min-height: clamp(50px, 8vh, 78px);
+      border: 2px solid transparent; border-radius: 10px;
+      font-size: clamp(0.9rem, 2.4vw, 1.6rem); font-weight: 800;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      gap: 0.3em; touch-action: manipulation;
+      transition: transform 0.08s; position: relative; overflow: hidden;
+    }
+    .bell-btn::after {
+      content: ''; position: absolute; inset: 0;
+      background: white; opacity: 0; transition: opacity 0.08s;
+    }
+    .bell-btn:active            { transform: scale(0.95); }
+    .bell-btn:active::after     { opacity: 0.12; }
+    #btn-yebi   { background: #2d2005; color: #e3b341; border-color: #d29922; }
+    #btn-bon    { background: #0d2418; color: #56d364; border-color: #3fb950; }
+    #btn-jongyo { background: #2d0e0e; color: #ff7b72; border-color: #f85149; }
+  </style>
+</head>
+<body>
+
+<!-- 활성화 오버레이: 첫 터치로 오디오 잠금 해제 -->
+<div id="overlay">
+  <div class="logo">🔔 수능 모의고사 시계</div>
+  <div class="hint">화면을 터치하여 시작</div>
+</div>
+
+<div id="app">
+
+  <!-- 헤더: 제목 + 상태 -->
+  <header id="hdr">
+    <div id="exam-title"><!-- JS가 EXAM_TITLE 값을 자동으로 삽입 --></div>
+    <div id="hdr-right">
+      <div id="sync-info"><div class="dot"></div><span>실시간</span></div>
+      <button id="fs-btn" onclick="toggleFS()">⛶ 전체화면</button>
+    </div>
+  </header>
+
+  <!-- 메인 영역 -->
+  <div id="main">
+
+    <!-- 좌: 시계 + 카운트다운 -->
+    <div id="clock-panel">
+      <div id="period-badge" class="prepare">시작 전</div>
+      <div id="time-display">--:--:--</div>
+      <div id="countdown-wrap">
+        <div id="cd-row">
+          <span id="cd-label">--</span>
+          <span id="cd-value">--:--</span>
+        </div>
+        <div id="progress-track">
+          <div id="progress-fill" style="width:0%"></div>
+        </div>
+      </div>
+      <div id="next-info"></div>
+    </div>
+
+    <!-- 우: 시간표 -->
+    <div id="table-panel">
+      <table id="schedule-table">
+        <thead>
+          <tr>
+            <th>교시</th>
+            <th>영역</th>
+            <th>시험 시간 (소요)</th>
+          </tr>
+        </thead>
+        <tbody id="schedule-tbody">
+          <!-- buildTable()이 TIMETABLE을 읽어 자동 생성 -->
+        </tbody>
+      </table>
+    </div>
+
+  </div><!-- #main -->
+
+  <!-- 수동 타종 버튼: 오류 시 직접 터치 -->
+  <div id="bell-buttons">
+    <button class="bell-btn" id="btn-yebi"   onclick="manualBell('yebi')">🔔 예비령</button>
+    <button class="bell-btn" id="btn-bon"     onclick="manualBell('bon')">🔔 본령</button>
+    <button class="bell-btn" id="btn-jongyo"  onclick="manualBell('jongyo')">🔔 종료령</button>
+  </div>
+
+</div><!-- #app -->
+
+<!-- 타종 알림 오버레이 -->
+<div id="bell-announce"></div>
+
+<!-- 오디오 파일: sounds/ 폴더에 아래 3개 파일을 넣어주세요 -->
+<audio id="audio-yebi"   src="sounds/yebi.mp3"   preload="auto"></audio>
+<audio id="audio-bon"    src="sounds/bon.mp3"     preload="auto"></audio>
+<audio id="audio-jongyo" src="sounds/jongyo.mp3"  preload="auto"></audio>
+
+<script>
+'use strict';
+
+/* ════════════════════════════════════════════════════════════
+   ★★ 수정 구역 1: 시험 제목
+   ────────────────────────────────────────────────────────────
+   아래 문자열을 원하는 제목으로 바꾸세요.
+   예) '2025년 3월 고3 전국연합학력평가'
+       '2025년 4월 고3 학력평가'
+       '○○고등학교 3학년 모의고사'
+   ════════════════════════════════════════════════════════════ */
+const EXAM_TITLE = '2025년 3월 고3 전국연합학력평가';
+
+
+/* ════════════════════════════════════════════════════════════
+   ★★ 수정 구역 2: 시간표
+   ────────────────────────────────────────────────────────────
+   모의고사 시간표에 맞게 아래 배열을 수정하세요.
+
+   [ type: 'exam' ] — 시험 교시
+     period   : 교시명        예) '1교시'
+     subject  : 영역명        예) '국어영역'
+     yebiH/M  : 예비령 시각  → 행 하이라이트 시작, 자동 예비령 울림
+     startH/M : 본령 시각    → 자동 본령 울림, 남은시간 카운트
+     endH/M   : 종료령 시각  → 자동 종료령 울림, 하이라이트 종료
+     min      : 시험 소요시간(분). 불명확하면 null
+
+   [ type: 'break' ] — 휴식/점심 (타종 없음, 회색 행)
+     period   : 왼쪽 라벨    예) '' 또는 '점심'
+     subject  : 구분명        예) '점심 시간', '휴식'
+     startH/M : 휴식 시작
+     endH/M   : 휴식 종료
+
+   ★ 시간표를 수정하면 타종 시각도 자동으로 함께 바뀝니다.
+   ════════════════════════════════════════════════════════════ */
+const TIMETABLE = [
+
+  { type:'exam',  period:'1교시', subject:'국어영역',
+    yebiH:8,  yebiM:40,  startH:8,  startM:45,  endH:10, endM:5,  min:80 },
+
+  { type:'break', period:'',  subject:'휴식',
+    startH:10, startM:5,  endH:10, endM:30 },
+
+  { type:'exam',  period:'2교시', subject:'수학영역',
+    yebiH:10, yebiM:25,  startH:10, startM:30,  endH:12, endM:10, min:100 },
+
+  { type:'break', period:'',  subject:'점심 시간',
+    startH:12, startM:10, endH:13, endM:0 },
+
+  { type:'exam',  period:'3교시', subject:'영어영역',
+    yebiH:12, yebiM:50,  startH:13, startM:0,   endH:14, endM:10, min:70 },
+
+  { type:'break', period:'',  subject:'휴식',
+    startH:14, startM:10, endH:14, endM:30 },
+
+  { type:'exam',  period:'4교시', subject:'한국사 / 탐구',
+    yebiH:14, yebiM:20,  startH:14, startM:30,  endH:16, endM:37, min:null },
+
+  { type:'break', period:'',  subject:'휴식',
+    startH:16, startM:37, endH:17, endM:5 },
+
+  { type:'exam',  period:'5교시', subject:'제2외국어 / 한문',
+    yebiH:16, yebiM:55,  startH:17, startM:5,   endH:17, endM:45, min:40 },
+
+];
+/* ════════════════════════════════════════════════════════════ */
+
+
+/* ────────────────────────────────────────────────────────────
+   자동 도출: TIMETABLE → BELLS (수정 불필요)
+   타종 시각은 TIMETABLE에서 자동으로 계산됩니다.
+   ──────────────────────────────────────────────────────────── */
+const BELLS = [];
+for (const row of TIMETABLE) {
+  if (row.type !== 'exam') continue;
+  BELLS.push({ h: row.yebiH,  m: row.yebiM,  type: 'yebi',   label: `${row.period} 예비령` });
+  BELLS.push({ h: row.startH, m: row.startM, type: 'bon',    label: `${row.period} ${row.subject} 시작` });
+  BELLS.push({ h: row.endH,   m: row.endM,   type: 'jongyo', label: `${row.period} ${row.subject} 종료` });
+}
+
+
+/* ── 오디오 ── */
+const audios = {
+  yebi:   document.getElementById('audio-yebi'),
+  bon:    document.getElementById('audio-bon'),
+  jongyo: document.getElementById('audio-jongyo'),
+};
+let audioReady = false;
+const firedBells = new Set();
+
+document.getElementById('overlay').addEventListener('click', () => {
+  document.getElementById('overlay').style.display = 'none';
+  // 브라우저 자동재생 정책 해제: 무음으로 각 오디오 한 번 재생
+  Object.values(audios).forEach(a => {
+    a.volume = 0;
+    const p = a.play();
+    if (p) p.then(() => { a.pause(); a.currentTime = 0; a.volume = 1; }).catch(() => {});
+  });
+  audioReady = true;
+});
+
+function playBell(type, label) {
+  if (!audioReady) return;
+  const a = audios[type];
+  if (!a) return;
+  a.currentTime = 0;
+  a.play().catch(e => console.warn('Audio:', e));
+  showEffect(type, label);
+}
+
+function manualBell(type) {
+  if (!audioReady) { alert('먼저 화면을 터치하여 시작해주세요.'); return; }
+  const names = { yebi: '예비령', bon: '본령', jongyo: '종료령' };
+  playBell(type, names[type]);
+}
+
+function showEffect(type, label) {
+  const flash = document.createElement('div');
+  flash.className = `flash ${type}`;
+  document.body.appendChild(flash);
+  setTimeout(() => flash.remove(), 800);
+
+  const ann = document.getElementById('bell-announce');
+  ann.textContent = `🔔 ${label}`;
+  ann.className = `${type} show`;
+  clearTimeout(ann._t);
+  ann._t = setTimeout(() => ann.classList.remove('show'), 3500);
+}
+
+function toggleFS() {
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+  else document.exitFullscreen().catch(() => {});
+}
+
+
+/* ── 유틸 ── */
+const toSec    = (h, m, s = 0) => h * 3600 + m * 60 + s;
+const pad      = n => String(n).padStart(2, '0');
+const fmtHHMM  = (h, m) => `${pad(h)}:${pad(m)}`;
+function fmtDur(sec) {
+  if (sec <= 0) return '00:00';
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+}
+
+
+/* ── 시간표 테이블 생성 ── */
+function buildTable() {
+  document.getElementById('exam-title').textContent = EXAM_TITLE;
+
+  const tbody = document.getElementById('schedule-tbody');
+  TIMETABLE.forEach((row, i) => {
+    const tr = document.createElement('tr');
+    tr.dataset.idx   = i;
+    tr.dataset.state = 'future';
+
+    if (row.type === 'exam') {
+      // 시험 시간 표시: "예비령시각 ~ 종료시각" + "(XX분)" 두 줄
+      const from   = fmtHHMM(row.yebiH,  row.yebiM);
+      const to     = fmtHHMM(row.endH,   row.endM);
+      const minTxt = row.min ? `(${row.min}분)` : '';
+      tr.className = 'row-exam';
+      tr.innerHTML = `
+        <td class="td-period">${row.period}</td>
+        <td class="td-subject">${row.subject}</td>
+        <td class="td-time">
+          <span class="time-range">${from} ~ ${to}</span>
+          <span class="time-min">${minTxt}</span>
+        </td>`;
+    } else {
+      const s = fmtHHMM(row.startH, row.startM);
+      const e = fmtHHMM(row.endH,   row.endM);
+      tr.className = 'row-break';
+      tr.innerHTML = `
+        <td>${row.period || ''}</td>
+        <td>${row.subject}</td>
+        <td class="td-break-time">${s} ~ ${e}</td>`;
+    }
+    tbody.appendChild(tr);
+  });
+}
+
+/* ── 행 하이라이트 상태 계산 ── */
+function getRowState(row, nowSec) {
+  if (row.type === 'exam') {
+    const yebiSec  = toSec(row.yebiH,  row.yebiM);
+    const startSec = toSec(row.startH, row.startM);
+    const endSec   = toSec(row.endH,   row.endM);
+    if (nowSec >= startSec && nowSec < endSec)  return 'active-exam';  // 시험 중
+    if (nowSec >= yebiSec  && nowSec < startSec) return 'active-yebi'; // 예비령
+    if (nowSec >= endSec)                         return 'past';
+    return 'future';
+  } else {
+    const s = toSec(row.startH, row.startM);
+    const e = toSec(row.endH,   row.endM);
+    if (nowSec >= s && nowSec < e) return 'active-break';
+    if (nowSec >= e)               return 'past';
+    return 'future';
+  }
+}
+
+/* ── 테이블 하이라이트 갱신 ── */
+function updateTable(nowSec) {
+  const rows = document.querySelectorAll('#schedule-tbody tr');
+  TIMETABLE.forEach((row, i) => {
+    rows[i].dataset.state = getRowState(row, nowSec);
+  });
+}
+
+
+/* ── 시계 UI 갱신 ── */
+function updateClockUI(nowSec) {
+  const badge = document.getElementById('period-badge');
+  const cdLbl = document.getElementById('cd-label');
+  const cdVal = document.getElementById('cd-value');
+  const fill  = document.getElementById('progress-fill');
+  const nxt   = document.getElementById('next-info');
+
+  const examRows   = TIMETABLE.filter(r => r.type === 'exam');
+  const firstYebi  = examRows.length ? toSec(examRows[0].yebiH, examRows[0].yebiM) : Infinity;
+  const lastEnd    = examRows.length ? toSec(examRows[examRows.length-1].endH, examRows[examRows.length-1].endM) : 0;
+  const nextBell   = BELLS.find(b => toSec(b.h, b.m) > nowSec) || null;
+
+  // 1. 시험 진행 중
+  const activePeriod = examRows.find(r =>
+    nowSec >= toSec(r.startH, r.startM) && nowSec < toSec(r.endH, r.endM)
+  );
+  if (activePeriod) {
+    const s = toSec(activePeriod.startH, activePeriod.startM);
+    const e = toSec(activePeriod.endH,   activePeriod.endM);
+    badge.textContent = `📝 ${activePeriod.period} ${activePeriod.subject}`;
+    badge.className   = 'exam';
+    cdLbl.textContent = '남은 시간';
+    cdVal.textContent = fmtDur(e - nowSec);
+    fill.style.width  = `${Math.min(((nowSec - s) / (e - s)) * 100, 100).toFixed(1)}%`;
+
+  // 2. 예비령 대기 중
+  } else {
+    const activeYebi = examRows.find(r =>
+      nowSec >= toSec(r.yebiH, r.yebiM) && nowSec < toSec(r.startH, r.startM)
+    );
+    if (activeYebi) {
+      badge.textContent = `⚡ ${activeYebi.period} 예비령`;
+      badge.className   = 'yebi';
+      cdLbl.textContent = '본령까지';
+      cdVal.textContent = fmtDur(toSec(activeYebi.startH, activeYebi.startM) - nowSec);
+      fill.style.width  = '0%';
+
+    // 3. 시험 시작 전
+    } else if (nowSec < firstYebi) {
+      badge.textContent = '시험 시작 전';
+      badge.className   = 'prepare';
+      cdLbl.textContent = '예비령까지';
+      cdVal.textContent = fmtDur(firstYebi - nowSec);
+      fill.style.width  = '0%';
+
+    // 4. 모든 시험 종료
+    } else if (nowSec >= lastEnd && lastEnd > 0) {
+      badge.textContent = '모든 시험 종료';
+      badge.className   = 'done';
+      cdLbl.textContent = '';
+      cdVal.textContent = '수고하셨습니다!';
+      fill.style.width  = '100%';
+
+    // 5. 교시 간 휴식
+    } else {
+      const currentBreak = TIMETABLE.find(r =>
+        r.type === 'break' &&
+        nowSec >= toSec(r.startH, r.startM) && nowSec < toSec(r.endH, r.endM)
+      );
+      badge.textContent = currentBreak ? currentBreak.subject : '휴식 중';
+      badge.className   = 'break';
+      if (nextBell) {
+        cdLbl.textContent = `${nextBell.label}까지`;
+        cdVal.textContent = fmtDur(toSec(nextBell.h, nextBell.m) - nowSec);
+      }
+      fill.style.width = '0%';
+    }
+  }
+
+  // 다음 타종 안내
+  nxt.textContent = nextBell
+    ? `다음 타종  →  ${fmtHHMM(nextBell.h, nextBell.m)}  ${nextBell.label}`
+    : '';
+}
+
+
+/* ── 메인 루프 ── */
+function tick() {
+  const now = new Date();
+  const H = now.getHours(), M = now.getMinutes(), S = now.getSeconds();
+  const nowSec = toSec(H, M, S);
+
+  // 시계 표시
+  document.getElementById('time-display').textContent = `${pad(H)}:${pad(M)}:${pad(S)}`;
+
+  // 자동 타종: 해당 분 :00~:01 사이 한 번만 울림
+  for (const bell of BELLS) {
+    const bSec = toSec(bell.h, bell.m);
+    const id   = `${bell.h}-${bell.m}-${bell.type}`;
+    if (nowSec >= bSec && nowSec < bSec + 2 && !firedBells.has(id)) {
+      firedBells.add(id);
+      playBell(bell.type, bell.label);
+    }
+  }
+
+  updateClockUI(nowSec);
+  updateTable(nowSec);
+}
+
+// 초기화
+buildTable();
+tick();
+setInterval(tick, 1000);
+</script>
+</body>
+</html>
