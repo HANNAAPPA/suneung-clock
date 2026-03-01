@@ -1,0 +1,21 @@
+name: Cloudflare Pages 자동 배포
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: 배포
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cloudflare Pages 배포
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ca655e7c7df83a16e72176f38c56b600
+          projectName: suneung-clock
+          directory: .
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
