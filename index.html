@@ -450,16 +450,8 @@
    ★★ 기본 시간표
    ════════════════════════════════════════════════════════════ */
 const DEFAULT_TIMETABLE = [
-  { type:'exam',  subject:'국어영역',
-    yebiH:7,  yebiM:55,  startH:8,  startM:0,   endH:9,  endM:20, min:80 },
-  { type:'break', subject:'휴식',
-    startH:9,  startM:20, endH:9,  endM:35 },
-  { type:'exam',  subject:'수학영역',
-    yebiH:9,  yebiM:30,  startH:9,  startM:35,  endH:11, endM:15, min:100 },
-  { type:'break', subject:'휴식',
-    startH:11, startM:15, endH:11, endM:30 },
-  { type:'exam',  subject:'영어영역',
-    yebiH:11, yebiM:25,  startH:11, startM:30,  endH:12, endM:40, min:70, noBon:true },
+  { type:'exam',  subject:'테스트',
+    yebiH:13, yebiM:17,  startH:13, startM:18,  endH:13, endM:19, min:1 },
 ];
 
 function loadTimetable() {
@@ -470,6 +462,7 @@ function loadTimetable() {
   return JSON.parse(JSON.stringify(DEFAULT_TIMETABLE));
 }
 
+localStorage.removeItem('suneung-timetable'); // 🔧 테스트용 임시
 let timetable = loadTimetable();
 
 /* ── 타종 도출 ── */
