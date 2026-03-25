@@ -287,6 +287,79 @@
     .flash.yebi   { background: #d29922; }
     .flash.bon    { background: #3fb950; }
     .flash.jongyo { background: #f85149; }
+    /* ── 시간표 편집 모달 ── */
+    #tt-editor {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+      z-index: 2000; display: flex; align-items: center; justify-content: center;
+      padding: 1rem;
+    }
+    .tte-box {
+      background: #161b22; border: 1px solid #30363d; border-radius: 12px;
+      width: 100%; max-width: 640px; max-height: 88vh;
+      display: flex; flex-direction: column;
+    }
+    .tte-hdr {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.9rem 1.2rem; border-bottom: 1px solid #21262d; flex-shrink: 0;
+      font-weight: 700; font-size: 1rem; color: #e6edf3;
+    }
+    .tte-hdr button {
+      background: none; border: none; color: #8b949e; font-size: 1.1rem;
+      cursor: pointer; padding: 0.1em 0.4em; border-radius: 4px; line-height: 1;
+    }
+    .tte-hdr button:hover { background: #21262d; }
+    .tte-body {
+      flex: 1; overflow-y: auto; padding: 0.8rem 1rem;
+      display: flex; flex-direction: column; gap: 0.6rem; min-height: 0;
+    }
+    .tte-body::-webkit-scrollbar { width: 4px; }
+    .tte-body::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
+    .tte-card {
+      background: #0d1117; border: 1px solid #21262d; border-radius: 8px;
+      padding: 0.6rem 0.8rem; display: flex; flex-direction: column; gap: 0.45rem;
+    }
+    .tte-card.exam-card { border-left: 3px solid #3fb950; }
+    .tte-card.break-card { border-left: 3px solid #58a6ff; }
+    .tte-card-row {
+      display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;
+    }
+    .tte-label { font-size: 0.76rem; color: #8b949e; white-space: nowrap; }
+    .tte-input {
+      background: #161b22; border: 1px solid #30363d; color: #e6edf3;
+      border-radius: 5px; padding: 0.22em 0.5em; font-size: 0.85rem;
+      font-family: inherit; outline: none;
+    }
+    .tte-input:focus { border-color: #58a6ff; }
+    .tte-input.subject { flex: 1; min-width: 110px; }
+    .tte-input.time-field { width: 6.5rem; }
+    .tte-input.min-field { width: 5rem; }
+    .tte-del-btn {
+      background: #2d0e0e; border: 1px solid #f85149; color: #ff7b72;
+      border-radius: 5px; padding: 0.18em 0.55em; font-size: 0.8rem;
+      cursor: pointer; margin-left: auto; white-space: nowrap;
+    }
+    .tte-del-btn:active { background: #3d1a1a; }
+    .tte-period-label { font-size: 0.8rem; font-weight: 700; color: #3fb950; white-space: nowrap; }
+    .tte-break-label  { font-size: 0.78rem; font-weight: 600; color: #58a6ff; white-space: nowrap; }
+    .tte-ftr {
+      display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;
+      padding: 0.7rem 1rem; border-top: 1px solid #21262d; flex-shrink: 0;
+    }
+    .tte-btn {
+      background: #21262d; border: 1px solid #30363d; color: #e6edf3;
+      border-radius: 6px; padding: 0.28em 0.75em; font-size: 0.85rem;
+      cursor: pointer; font-family: inherit; white-space: nowrap;
+    }
+    .tte-btn:active { background: #30363d; }
+    .tte-btn.primary { background: #1f6feb; border-color: #388bfd; }
+    .tte-btn.primary:active { background: #388bfd; }
+    .tt-edit-btn {
+      background: #21262d; border: 1px solid #30363d; color: #8b949e;
+      border-radius: 5px; padding: 0.18em 0.5em;
+      font-size: clamp(0.65rem, 1.1vw, 0.82rem);
+      cursor: pointer; white-space: nowrap;
+    }
+    .tt-edit-btn:active { background: #30363d; }
   </style>
 </head>
 <body>
@@ -326,6 +399,10 @@
 
     <!-- 우: 시간표 -->
     <div id="table-panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.4rem;flex-shrink:0;">
+        <span style="font-size:clamp(0.75rem,1.5vw,1.05rem);font-weight:600;color:#6b7280;">시간표</span>
+        <button class="tt-edit-btn" onclick="openTimetableEditor()">⚙️ 편집</button>
+      </div>
       <table id="schedule-table">
         <thead>
           <tr>
@@ -370,49 +447,54 @@
 'use strict';
 
 /* ════════════════════════════════════════════════════════════
-   ★★ 수정 구역: 시간표
+   ★★ 기본 시간표
    ════════════════════════════════════════════════════════════ */
-const TIMETABLE = [
-
-  { type:'exam',  period:'1교시', subject:'국어영역',
+const DEFAULT_TIMETABLE = [
+  { type:'exam',  subject:'국어영역',
     yebiH:8,  yebiM:40,  startH:8,  startM:45,  endH:10, endM:5,  min:80 },
-
-  { type:'break', period:'',  subject:'휴식',
+  { type:'break', subject:'휴식',
     startH:10, startM:5,  endH:10, endM:30 },
-
-  { type:'exam',  period:'2교시', subject:'수학영역',
+  { type:'exam',  subject:'수학영역',
     yebiH:10, yebiM:25,  startH:10, startM:30,  endH:12, endM:10, min:100 },
-
-  { type:'break', period:'',  subject:'점심 시간',
+  { type:'break', subject:'점심 시간',
     startH:12, startM:10, endH:13, endM:0 },
-
-  { type:'exam',  period:'3교시', subject:'영어영역',
+  { type:'exam',  subject:'영어영역',
     yebiH:12, yebiM:50,  startH:13, startM:0,   endH:14, endM:10, min:70 },
-
-  { type:'break', period:'',  subject:'휴식',
+  { type:'break', subject:'휴식',
     startH:14, startM:10, endH:14, endM:30 },
-
-  { type:'exam',  period:'4교시', subject:'한국사 / 탐구',
+  { type:'exam',  subject:'한국사 / 탐구',
     yebiH:14, yebiM:20,  startH:14, startM:30,  endH:16, endM:37, min:null },
-
-  { type:'break', period:'',  subject:'휴식',
+  { type:'break', subject:'휴식',
     startH:16, startM:37, endH:17, endM:5 },
-
-  { type:'exam',  period:'5교시', subject:'제2외국어 / 한문',
+  { type:'exam',  subject:'제2외국어 / 한문',
     yebiH:16, yebiM:55,  startH:17, startM:5,   endH:17, endM:45, min:40 },
-
 ];
-/* ════════════════════════════════════════════════════════════ */
 
-
-/* ── 타종 자동 도출 ── */
-const BELLS = [];
-for (const row of TIMETABLE) {
-  if (row.type !== 'exam') continue;
-  BELLS.push({ h: row.yebiH,  m: row.yebiM,  type: 'yebi',   label: `${row.period} 예비령` });
-  BELLS.push({ h: row.startH, m: row.startM, type: 'bon',    label: `${row.period} ${row.subject} 시작` });
-  BELLS.push({ h: row.endH,   m: row.endM,   type: 'jongyo', label: `${row.period} ${row.subject} 종료` });
+function loadTimetable() {
+  try {
+    const s = localStorage.getItem('suneung-timetable');
+    if (s) return JSON.parse(s);
+  } catch(e) {}
+  return JSON.parse(JSON.stringify(DEFAULT_TIMETABLE));
 }
+
+let timetable = loadTimetable();
+
+/* ── 타종 도출 ── */
+let BELLS = [];
+function buildBells() {
+  BELLS = [];
+  let n = 0;
+  for (const row of timetable) {
+    if (row.type !== 'exam') continue;
+    n++;
+    const p = `${n}교시`;
+    BELLS.push({ h: row.yebiH,  m: row.yebiM,  type: 'yebi',   label: `${p} 예비령` });
+    BELLS.push({ h: row.startH, m: row.startM, type: 'bon',    label: `${p} ${row.subject} 시작` });
+    BELLS.push({ h: row.endH,   m: row.endM,   type: 'jongyo', label: `${p} ${row.subject} 종료` });
+  }
+}
+buildBells();
 
 
 /* ── 오디오 ── */
@@ -467,7 +549,7 @@ function toggleFS() {
 }
 
 
-/* ── 제목 편집 (localStorage 저장) ── */
+/* ── 제목 편집 ── */
 const titleEl = document.getElementById('exam-title');
 
 (function initTitle() {
@@ -501,10 +583,9 @@ titleEl.addEventListener('keydown', e => {
 });
 
 
-/* ── 유의사항 편집 (localStorage 저장) ── */
+/* ── 유의사항 편집 ── */
 const noticeView = document.getElementById('notice-view');
 const noticeTa   = document.getElementById('notice-ta');
-const noticeEditBtn = document.getElementById('notice-edit-btn');
 const noticeBtnGroup = document.getElementById('notice-btn-group');
 
 (function initNotice() {
@@ -546,9 +627,8 @@ function noticeSave() {
 }
 
 
-/* ── 영어듣기 음원 업로드 & 재생 ── */
+/* ── 영어듣기 ── */
 let listeningAudio = null;
-let listeningProgressTimer = null;
 
 document.getElementById('listening-file').addEventListener('change', function() {
   const file = this.files[0];
@@ -558,7 +638,6 @@ document.getElementById('listening-file').addEventListener('change', function() 
   listeningAudio = new Audio(url);
   listeningAudio.addEventListener('ended', listeningEnded);
   listeningAudio.addEventListener('timeupdate', updateProgress);
-
   document.getElementById('listening-name').textContent = file.name;
   document.getElementById('listening-name').classList.add('loaded');
   document.getElementById('listening-play-btn').disabled = false;
@@ -608,17 +687,21 @@ const fmtHHMM = (h, m) => `${pad(h)}:${pad(m)}`;
 /* ── 시간표 테이블 생성 ── */
 function buildTable() {
   const tbody = document.getElementById('schedule-tbody');
-  TIMETABLE.forEach((row, i) => {
+  tbody.innerHTML = '';
+  let examNum = 0;
+  timetable.forEach((row, i) => {
     const tr = document.createElement('tr');
     tr.dataset.idx   = i;
     tr.dataset.state = 'future';
     if (row.type === 'exam') {
+      examNum++;
+      const period = `${examNum}교시`;
       const from   = fmtHHMM(row.yebiH,  row.yebiM);
       const to     = fmtHHMM(row.endH,   row.endM);
       const minTxt = row.min ? `(${row.min}분)` : '';
       tr.className = 'row-exam';
       tr.innerHTML = `
-        <td class="td-period">${row.period}</td>
+        <td class="td-period">${period}</td>
         <td class="td-subject">${row.subject}</td>
         <td class="td-time">
           <span class="time-range">${from} ~ ${to}</span>
@@ -629,12 +712,18 @@ function buildTable() {
       const e = fmtHHMM(row.endH,   row.endM);
       tr.className = 'row-break';
       tr.innerHTML = `
-        <td>${row.period || ''}</td>
+        <td></td>
         <td>${row.subject}</td>
         <td class="td-break-time">${s} ~ ${e}</td>`;
     }
     tbody.appendChild(tr);
   });
+}
+
+function rebuildAll() {
+  buildBells();
+  buildTable();
+  firedBells.clear();
 }
 
 
@@ -663,9 +752,7 @@ function tick() {
   const now = new Date();
   const H = now.getHours(), M = now.getMinutes(), S = now.getSeconds();
   const nowSec = toSec(H, M, S);
-
   document.getElementById('now-time').textContent = `${pad(H)}:${pad(M)}:${pad(S)}`;
-
   for (const bell of BELLS) {
     const bSec = toSec(bell.h, bell.m);
     const id   = `${bell.h}-${bell.m}-${bell.type}`;
@@ -674,12 +761,160 @@ function tick() {
       playBell(bell.type, bell.label);
     }
   }
-
   const rows = document.querySelectorAll('#schedule-tbody tr');
-  TIMETABLE.forEach((row, i) => { rows[i].dataset.state = getRowState(row, nowSec); });
+  timetable.forEach((row, i) => { rows[i].dataset.state = getRowState(row, nowSec); });
 }
 
 
+/* ════════════════════════════════════════════════════════════
+   ★★ 시간표 편집 모달
+   ════════════════════════════════════════════════════════════ */
+let _editRows = null;
+
+function openTimetableEditor() {
+  _editRows = JSON.parse(JSON.stringify(timetable));
+  renderEditorModal();
+}
+
+function tteClose() {
+  const el = document.getElementById('tt-editor');
+  if (el) el.remove();
+  _editRows = null;
+}
+
+function renderEditorModal() {
+  const existing = document.getElementById('tt-editor');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'tt-editor';
+
+  const box = document.createElement('div');
+  box.className = 'tte-box';
+  box.innerHTML = `
+    <div class="tte-hdr">
+      <span>⚙️ 시간표 편집</span>
+      <button onclick="tteClose()">✕</button>
+    </div>
+    <div class="tte-body" id="tte-rows"></div>
+    <div class="tte-ftr">
+      <button class="tte-btn" onclick="tteAddExam()">+ 교시 추가</button>
+      <button class="tte-btn" onclick="tteAddBreak()">+ 휴식 추가</button>
+      <div style="flex:1"></div>
+      <button class="tte-btn" onclick="tteClose()">취소</button>
+      <button class="tte-btn primary" onclick="tteSave()">저장</button>
+    </div>`;
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  tteRenderRows();
+}
+
+function tteRenderRows() {
+  const container = document.getElementById('tte-rows');
+  if (!container) return;
+  container.innerHTML = '';
+  let examNum = 0;
+  _editRows.forEach((row, i) => {
+    const card = document.createElement('div');
+    if (row.type === 'exam') {
+      examNum++;
+      card.className = 'tte-card exam-card';
+      card.innerHTML = `
+        <div class="tte-card-row">
+          <span class="tte-period-label">${examNum}교시</span>
+          <input class="tte-input subject" type="text" value="${row.subject}" placeholder="영역명" data-idx="${i}" data-field="subject">
+          <button class="tte-del-btn" onclick="tteDeleteRow(${i})">삭제</button>
+        </div>
+        <div class="tte-card-row">
+          <span class="tte-label">예비</span>
+          <input class="tte-input time-field" type="time" value="${pad(row.yebiH)}:${pad(row.yebiM)}" data-idx="${i}" data-field="yebi">
+          <span class="tte-label">시작</span>
+          <input class="tte-input time-field" type="time" value="${pad(row.startH)}:${pad(row.startM)}" data-idx="${i}" data-field="start">
+          <span class="tte-label">종료</span>
+          <input class="tte-input time-field" type="time" value="${pad(row.endH)}:${pad(row.endM)}" data-idx="${i}" data-field="end">
+        </div>
+        <div class="tte-card-row">
+          <span class="tte-label">시험시간</span>
+          <input class="tte-input min-field" type="number" value="${row.min || ''}" placeholder="분 (선택)" min="1" max="999" data-idx="${i}" data-field="min">
+          <span class="tte-label">분</span>
+        </div>`;
+    } else {
+      card.className = 'tte-card break-card';
+      card.innerHTML = `
+        <div class="tte-card-row">
+          <span class="tte-break-label">휴식</span>
+          <input class="tte-input subject" type="text" value="${row.subject}" placeholder="이름" data-idx="${i}" data-field="subject">
+          <button class="tte-del-btn" onclick="tteDeleteRow(${i})">삭제</button>
+        </div>
+        <div class="tte-card-row">
+          <span class="tte-label">시작</span>
+          <input class="tte-input time-field" type="time" value="${pad(row.startH)}:${pad(row.startM)}" data-idx="${i}" data-field="start">
+          <span class="tte-label">종료</span>
+          <input class="tte-input time-field" type="time" value="${pad(row.endH)}:${pad(row.endM)}" data-idx="${i}" data-field="end">
+        </div>`;
+    }
+    container.appendChild(card);
+  });
+
+  container.querySelectorAll('.tte-input').forEach(input => {
+    input.addEventListener('change', tteOnChange);
+    input.addEventListener('input',  tteOnChange);
+  });
+}
+
+function tteOnChange(e) {
+  const idx   = parseInt(e.target.dataset.idx);
+  const field = e.target.dataset.field;
+  const val   = e.target.value;
+  const row   = _editRows[idx];
+  if (field === 'subject') {
+    row.subject = val;
+  } else if (field === 'min') {
+    row.min = val ? parseInt(val) : null;
+  } else {
+    const parts = val.split(':').map(Number);
+    if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return;
+    const [h, m] = parts;
+    if (field === 'yebi')  { row.yebiH  = h; row.yebiM  = m; }
+    if (field === 'start') { row.startH = h; row.startM = m; }
+    if (field === 'end')   { row.endH   = h; row.endM   = m; }
+  }
+}
+
+function tteDeleteRow(i) {
+  _editRows.splice(i, 1);
+  tteRenderRows();
+}
+
+function tteAddExam() {
+  const last = [..._editRows].reverse().find(r => r.endH !== undefined);
+  const h = last ? last.endH : 9, m = last ? last.endM : 0;
+  _editRows.push({ type:'exam', subject:'새 영역',
+    yebiH:h, yebiM:m, startH:h, startM:m, endH:h+1, endM:m, min:null });
+  tteRenderRows();
+  const body = document.getElementById('tte-rows');
+  if (body) body.scrollTop = body.scrollHeight;
+}
+
+function tteAddBreak() {
+  const last = [..._editRows].reverse().find(r => r.endH !== undefined);
+  const h = last ? last.endH : 9, m = last ? last.endM : 0;
+  _editRows.push({ type:'break', subject:'휴식',
+    startH:h, startM:m, endH:h, endM:m });
+  tteRenderRows();
+  const body = document.getElementById('tte-rows');
+  if (body) body.scrollTop = body.scrollHeight;
+}
+
+function tteSave() {
+  timetable = JSON.parse(JSON.stringify(_editRows));
+  localStorage.setItem('suneung-timetable', JSON.stringify(timetable));
+  tteClose();
+  rebuildAll();
+}
+
+
+/* ── 초기화 ── */
 buildTable();
 tick();
 setInterval(tick, 1000);
