@@ -451,23 +451,15 @@
    ════════════════════════════════════════════════════════════ */
 const DEFAULT_TIMETABLE = [
   { type:'exam',  subject:'국어영역',
-    yebiH:8,  yebiM:40,  startH:8,  startM:45,  endH:10, endM:5,  min:80 },
+    yebiH:7,  yebiM:55,  startH:8,  startM:0,   endH:9,  endM:20, min:80 },
   { type:'break', subject:'휴식',
-    startH:10, startM:5,  endH:10, endM:30 },
+    startH:9,  startM:20, endH:9,  endM:35 },
   { type:'exam',  subject:'수학영역',
-    yebiH:10, yebiM:25,  startH:10, startM:30,  endH:12, endM:10, min:100 },
-  { type:'break', subject:'점심 시간',
-    startH:12, startM:10, endH:13, endM:0 },
+    yebiH:9,  yebiM:30,  startH:9,  startM:35,  endH:11, endM:15, min:100 },
+  { type:'break', subject:'휴식',
+    startH:11, startM:15, endH:11, endM:30 },
   { type:'exam',  subject:'영어영역',
-    yebiH:12, yebiM:50,  startH:13, startM:0,   endH:14, endM:10, min:70 },
-  { type:'break', subject:'휴식',
-    startH:14, startM:10, endH:14, endM:30 },
-  { type:'exam',  subject:'한국사 / 탐구',
-    yebiH:14, yebiM:20,  startH:14, startM:30,  endH:16, endM:37, min:null },
-  { type:'break', subject:'휴식',
-    startH:16, startM:37, endH:17, endM:5 },
-  { type:'exam',  subject:'제2외국어 / 한문',
-    yebiH:16, yebiM:55,  startH:17, startM:5,   endH:17, endM:45, min:40 },
+    yebiH:11, yebiM:25,  startH:11, startM:30,  endH:12, endM:40, min:70, noBon:true },
 ];
 
 function loadTimetable() {
@@ -490,7 +482,8 @@ function buildBells() {
     n++;
     const p = `${n}교시`;
     BELLS.push({ h: row.yebiH,  m: row.yebiM,  type: 'yebi',   label: `${p} 예비령` });
-    BELLS.push({ h: row.startH, m: row.startM, type: 'bon',    label: `${p} ${row.subject} 시작` });
+    if (!row.noBon)
+      BELLS.push({ h: row.startH, m: row.startM, type: 'bon',  label: `${p} ${row.subject} 시작` });
     BELLS.push({ h: row.endH,   m: row.endM,   type: 'jongyo', label: `${p} ${row.subject} 종료` });
   }
 }
@@ -837,6 +830,10 @@ function tteRenderRows() {
           <span class="tte-label">시험시간</span>
           <input class="tte-input min-field" type="number" value="${row.min || ''}" placeholder="분 (선택)" min="1" max="999" data-idx="${i}" data-field="min">
           <span class="tte-label">분</span>
+          <label style="display:flex;align-items:center;gap:0.3rem;margin-left:0.6rem;font-size:0.78rem;color:#8b949e;cursor:pointer;">
+            <input type="checkbox" ${row.noBon ? 'checked' : ''} data-idx="${i}" data-field="noBon" style="accent-color:#58a6ff;">
+            본령 생략
+          </label>
         </div>`;
     } else {
       card.className = 'tte-card break-card';
@@ -856,7 +853,7 @@ function tteRenderRows() {
     container.appendChild(card);
   });
 
-  container.querySelectorAll('.tte-input').forEach(input => {
+  container.querySelectorAll('.tte-input, input[data-field="noBon"]').forEach(input => {
     input.addEventListener('change', tteOnChange);
     input.addEventListener('input',  tteOnChange);
   });
@@ -867,7 +864,10 @@ function tteOnChange(e) {
   const field = e.target.dataset.field;
   const val   = e.target.value;
   const row   = _editRows[idx];
-  if (field === 'subject') {
+  if (field === 'noBon') {
+    row.noBon = e.target.checked;
+    return;
+  } else if (field === 'subject') {
     row.subject = val;
   } else if (field === 'min') {
     row.min = val ? parseInt(val) : null;
