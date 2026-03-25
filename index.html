@@ -16,7 +16,9 @@
 
     /* ── 활성화 오버레이 ── */
     #overlay {
-      position: fixed; inset: 0; background: #0d1117;
+      position: fixed; top: 0; right: 0; bottom: 0; left: 0;
+      width: 100%; height: 100%;
+      background: #0d1117;
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
       z-index: 999; cursor: pointer; gap: 1.5rem;
@@ -256,7 +258,7 @@
       transition: transform 0.08s; position: relative; overflow: hidden;
     }
     .bell-btn::after {
-      content: ''; position: absolute; inset: 0;
+      content: ''; position: absolute; top: 0; right: 0; bottom: 0; left: 0;
       background: white; opacity: 0; transition: opacity 0.08s;
     }
     .bell-btn:active            { transform: scale(0.95); }
@@ -280,7 +282,7 @@
 
     /* ── 화면 플래시 ── */
     .flash {
-      position: fixed; inset: 0; pointer-events: none; z-index: 700;
+      position: fixed; top: 0; right: 0; bottom: 0; left: 0; pointer-events: none; z-index: 700;
       animation: flash-out 0.7s ease-out forwards;
     }
     @keyframes flash-out { 0%{opacity:0.3} 100%{opacity:0} }
@@ -289,7 +291,7 @@
     .flash.jongyo { background: #f85149; }
     /* ── 시간표 편집 모달 ── */
     #tt-editor {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+      position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0,0,0,0.85);
       z-index: 2000; display: flex; align-items: center; justify-content: center;
       padding: 1rem;
     }
